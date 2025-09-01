@@ -1,0 +1,132 @@
+Yoga Pose Evaluation System - Complete Documentation
+1. Overview
+The Yoga Pose Evaluation System is a computer vision-based application that automatically detects 
+and scores yoga poses in real-time using MediaPipe and OpenCV. It is designed for yoga competitions, 
+fitness assessments, or personal training feedback.
+
+Key Features
+✅ Real-time Pose Detection – Uses MediaPipe Pose for accurate body tracking.
+✅ Pose Classification – Identifies common yoga poses (Tree Pose, Warrior II, Triangle Pose, etc.).
+✅ Scoring System – Evaluates pose accuracy and alignment.
+✅ Contestant Tracking – Records scores for multiple participants.
+✅ Pose Transition Handling – Avoids redundant scoring by detecting pose changes.
+✅ Child Pose Support – Recognizes variations of standard poses.
+✅ GUI Interface – Built with Tkinter for easy interaction.
+
+2. System Architecture
+The system consists of two main components:
+
+PoseEvaluator Class – Handles pose detection, classification, and scoring.
+
+YogaRefereeApp Class – Provides a GUI for real-time feedback and data management.
+
+2.1 PoseEvaluator Class
+Core Methods
+Method	Description
+calculate_angle(a, b, c)	Computes joint angles (in degrees) between three points.
+calculate_hip_twist(landmarks)	Measures hip rotation for pose alignment.
+classify_pose(landmarks)	Identifies the current yoga pose and computes its score.
+evaluate_tree_pose(angles)	Scores Tree Pose based on hip and knee angles.
+evaluate_warrior_ii(angles)	Scores Warrior II based on knee bend and hip openness.
+evaluate_triangle_pose(side_bend, hip_alignment)	Scores Triangle Pose based on side bend and hip alignment.
+draw_skeleton(frame, landmarks, w, h)	Draws pose landmarks and score overlay on the video feed.
+Key Improvements
+Pose Transition Handling – Only records the best score per pose when transitioning to a new pose.
+
+Child Pose Detection – Identifies pose variations (e.g., "Revolved Tree Pose" as a child of "Tree Pose").
+
+Hold Time Tracking – Measures how long a pose is maintained.
+
+3. Pose Detection & Scoring Logic
+3.1 Pose Classification Criteria
+Pose	Key Angles	Ideal Values
+Tree Pose	Right knee bend, hip alignment	Knee: ~45°, Hip: ~180°
+Warrior II	Front knee bend, hip openness	Knee: ~90°, Hip: ~90°
+Triangle Pose	Side bend, hip alignment	Side bend: ~60°, Hip alignment: ~180°
+3.2 Scoring Methodology
+Joint Angle Deviation – Scores decrease if angles deviate from ideal values.
+
+Hip Twist Penalty – Excessive rotation reduces score.
+
+Hold Time Bonus – Longer holds improve stability score.
+
+3.3 Pose Transition Logic
+A new pose is recorded only when transitioning (not continuously).
+
+The highest score during the pose is saved.
+
+Hold time is measured for stability assessment.
+
+4. GUI Features (YogaRefereeApp Class)
+4.1 Main Window Layout
+Video Feed Panel – Displays real-time pose detection.
+
+Contestant Info Panel – Shows current contestant and score.
+
+Pose Info Panel – Displays detected pose and its score.
+
+Control Buttons – Start/stop contestant, save results, pause video.
+
+4.2 Menu Options
+Menu	Options
+File	New Contestant, Save Results, Reset Current, Exit
+Settings	Detection Confidence, Model Complexity
+View	Contestant History
+Help	About
+4.3 Key Functions
+Function	Description
+new_contestant()	Starts tracking a new participant.
+save_results()	Saves scores to a JSON file.
+reset_current()	Resets the current contestant's session.
+update_video()	Processes each frame for pose detection.
+5. JSON Output Format
+Scores are saved in yoga_contest_results.json with the following structure:
+
+json
+{
+  "contestant_name": [
+    {
+      "date": "YYYY-MM-DD HH:MM:SS",
+      "total_score": 185.42,
+      "poses": [
+        {
+          "pose": "Tree Pose",
+          "score": 92.71,
+          "hold_time": 8.5,
+          "timestamp": "2025-08-17 16:47:34",
+          "is_child_pose": false
+        }
+      ]
+    }
+  ]
+}
+6. Installation & Usage
+6.1 Requirements
+Python 3.8+
+
+OpenCV (pip install opencv-python)
+
+MediaPipe (pip install mediapipe)
+
+Tkinter (usually included with Python)
+
+6.2 Running the Application
+bash
+python yoga_referee_app.py
+6.3 Expected Workflow
+Start a new contestant → Enter name.
+
+Perform poses → System detects and scores them.
+
+Save results → Exports to JSON.
+
+View history → Check past performances.
+
+7. Future Enhancements
+🔹 Pose Sequence Validation – Ensure poses follow a predefined routine.
+🔹 Difficulty Multipliers – Higher scores for advanced variations.
+🔹 3D Pose Estimation – Improve accuracy with depth sensors.
+🔹 AI-Based Feedback – Suggest corrections in real-time.
+
+8. Conclusion
+This system provides an automated, fair, and efficient way to evaluate yoga poses in competitions or training. By leveraging MediaPipe Pose, OpenCV, and Tkinter, it offers real-time feedback with a user-friendly interface.
