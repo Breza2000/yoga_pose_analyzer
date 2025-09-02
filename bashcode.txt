@@ -1,0 +1,30 @@
+sourece# to make an virtual enviroment
+# open up bash herminal:
+
+python -m venv yogaenv
+source yogaenv/Scripts/activate
+
+
+pip install -r requirements.txt
+
+#Make an Offline .exe
+    #Use PyInstaller inside the virtualenv:
+
+    python -m venv yoga_env
+    yoga_env\Scripts\activate   # on Windows
+    pip install -r requirements.txt
+
+#for deactivatig virtual enviroment
+deactivate
+
+
+# 1. Make sure you have the latest build tools
+python -m pip install -U pip setuptools wheel
+
+# 2. Install PyInstaller (the freezer)
+python -m pip install -U pyinstaller
+
+
+
+
+ python -m PyInstaller --name Yoga_Referee --onefile --noconsole --collect-data mediapipe --icon Yoga.ico Yoga_referee_test.py
