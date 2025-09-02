@@ -31,12 +31,12 @@ class PoseEvaluator:
         self.performed_poses = []
         self.contestants = {}
         
-        # Pose transition tracking
+        # Pose transition tracking - INITIALIZE WITH CURRENT TIME, NOT None
         self.current_pose = None
-        self.current_pose_start_time = None
+        self.current_pose_start_time = datetime.now()
         self.current_pose_best_score = 0
         self.pose_hold_threshold = 2.0  # seconds
-        self.last_pose_change_time = None
+        self.last_pose_change_time = datetime.now()
 
 
     def reset_pose_model(self):
@@ -49,12 +49,15 @@ class PoseEvaluator:
 
     def calculate_angle(self, a, b, c):
         """Calculate angle between three 3D points a, b, c (in degrees)."""
-        a, b, c = np.array(a), np.array(b), np.array(c)
-        ba = a - b
-        bc = c - b
-        cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)
-        angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
-        return np.degrees(angle)
+        try:
+            a, b, c = np.array(a), np.array(b), np.array(c)
+            ba = a - b
+            bc = c - b
+            cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)
+            angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
+            return np.degrees(angle)                        #Returns the angles
+        except (TypeError, ValueError, IndexError):
+            return 0                                        # Return 0 if calculation fails
 
     def calculate_hip_twist(self, landmarks):
         """Calculate hip twist angle (frontal plane rotation)"""
@@ -82,76 +85,82 @@ class PoseEvaluator:
 
     
     def hand_on_ground(self, landmarks):
-        left_wrist = [landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].x,      #left wrist list
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].z]
-        
-        right_wrist = [landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].x,    #right wrist list
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].z]
-
-        left_ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x,    #left ankle list 
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].z]    
+        """Check if hands are on the ground using MediaPipe landmarks directly"""
+        try:
+            left_wrist = [landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].x,      #left wrist list
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].z]
             
-        right_ankle = [landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,    #right ankle list
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].z]
-        
-        left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,    #left knee list
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].z]        
+            right_wrist = [landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].x,    #right wrist list
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].z]
 
-        right_knee = [landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].x,    #right knee list
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].z] 
+            left_ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x,    #left ankle list 
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].z]    
+                
+            right_ankle = [landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,    #right ankle list
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].z]
+            
+            left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,    #left knee list
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].z]        
 
-        """calling distance function and checking if the hands are close to feets""" 
-        ref_dist = (self.distance(right_knee, right_ankle) + self.distance(left_knee, left_ankle))/2
-        
-        right_hand_on_ground =  (abs(right_wrist[1] - right_ankle[1] )< ref_dist)
-        left_hand_on_ground =   (abs(left_wrist[1] - left_ankle[1]) < ref_dist)
+            right_knee = [landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].x,    #right knee list
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].z] 
+
+            """calling distance function and checking if the hands are close to feets""" 
+            ref_dist = (self.distance(right_knee, right_ankle) + self.distance(left_knee, left_ankle))/2
+            
+            right_hand_on_ground =  (abs(right_wrist[1] - right_ankle[1] )< ref_dist)
+            left_hand_on_ground =   (abs(left_wrist[1] - left_ankle[1]) < ref_dist)
 
 
-        """returning bollean"""
-        return left_hand_on_ground or right_hand_on_ground
+            """returning bollean"""
+            return left_hand_on_ground or right_hand_on_ground
+        except (IndexError, AttributeError):
+            return False
 
 
     
     def touching_toes(self, landmarks):
-        left_wrist = [landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].x,      #left wrist list
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].z]
-        
-        right_wrist = [landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].x,    #right wrist list
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].z]
-
-        left_ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x,    #left ankle list 
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].z]    
+        """Check if hands are touching toes using MediaPipe landmarks directly"""
+        try:
+            left_wrist = [landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].x,      #left wrist list
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].z]
             
-        right_ankle = [landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,    #right ankle list
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].z]
-        
-        left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,    #left knee list
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].z]        
+            right_wrist = [landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].x,    #right wrist list
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].z]
 
-        right_knee = [landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].x,    #right knee list
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].y,
-                      landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].z] 
+            left_ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x,    #left ankle list 
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].z]    
+                
+            right_ankle = [landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].x,    #right ankle list
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].z]
+            
+            left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,    #left knee list
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].z]        
 
-        """calling distance function and checking if the hands are close to feets""" 
-        ref_dist = (self.distance(right_knee, right_ankle) + self.distance(left_knee, left_ankle))/2
+            right_knee = [landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].x,    #right knee list
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].y,
+                        landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].z] 
 
-        right_hand_touch = (1.5*self.distance(right_wrist , right_ankle ) < ref_dist)
-        left_hand_touch = (1.5*self.distance(left_wrist , left_ankle) < ref_dist)
+            """calling distance function and checking if the hands are close to feets""" 
+            ref_dist = (self.distance(right_knee, right_ankle) + self.distance(left_knee, left_ankle))/2
 
-
-        """returning bollean"""
-        return left_hand_touch and right_hand_touch
+            right_hand_touch = (1.5*self.distance(right_wrist , right_ankle ) < ref_dist)
+            left_hand_touch = (1.5*self.distance(left_wrist , left_ankle) < ref_dist)
+      
+            return left_hand_touch and right_hand_touch
+        except (IndexError, AttributeError):
+            return False
 
 
     def distance(self, point1, point2):
@@ -160,40 +169,89 @@ class PoseEvaluator:
         x2, y2, z2 = point2
         dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
         return dist
-
-
+    
     def classify_pose(self, landmarks):
         """Classify yoga pose and calculate score with transition handling"""
         keypoints = {}
         for landmark in self.mp_pose.PoseLandmark:
-            keypoints[landmark.name.lower()] = [
-                landmarks[landmark.value].x,
-                landmarks[landmark.value].y,
-                landmarks[landmark.value].z
-            ]
-        
+            try:
+                keypoints[landmark.name.lower()] = [
+                    landmarks[landmark.value].x,
+                    landmarks[landmark.value].y,
+                    landmarks[landmark.value].z
+                ]
+            except (IndexError, AttributeError):
+                # If landmark is not detected, use zeros
+                keypoints[landmark.name.lower()] = [0, 0, 0]    
+            
+    # Safe angle calculations with default values
         angles = {
-            'left_elbow': self.calculate_angle(
-                keypoints['left_shoulder'], keypoints['left_elbow'], keypoints['left_wrist']),
-            'right_elbow': self.calculate_angle(
-                keypoints['right_shoulder'], keypoints['right_elbow'], keypoints['right_wrist']),
-            'left_knee': self.calculate_angle(
-                keypoints['left_hip'], keypoints['left_knee'], keypoints['left_ankle']),
-            'right_knee': self.calculate_angle(
-                keypoints['right_hip'], keypoints['right_knee'], keypoints['right_ankle']),
-            'left_hip': self.calculate_angle(
-                keypoints['left_shoulder'], keypoints['left_hip'], keypoints['left_knee']),
-            'right_hip': self.calculate_angle(
-                keypoints['right_shoulder'], keypoints['right_hip'], keypoints['right_knee']),
-            'right_hip_twist': self.calculate_angle(
-                keypoints['left_hip'], keypoints['right_hip'], keypoints['right_knee']),
-            'left_hip_twist': self.calculate_angle(
-                keypoints['right_hip'], keypoints['left_hip'], keypoints['left_knee']),
-            'hip_twist': self.calculate_hip_twist(landmarks)
-        }
+                'left_shoulder': self.calculate_angle(
+                    keypoints.get('left_elbow', [0,0,0]), 
+                    keypoints.get('left_shoulder', [0,0,0]), 
+                    keypoints.get('left_hip', [0,0,0])),
+                'right_shoulder': self.calculate_angle(
+                    keypoints.get('right_elbow', [0,0,0]), 
+                    keypoints.get('right_shoulder', [0,0,0]), 
+                    keypoints.get('right_hip', [0,0,0])),                    
+                'left_elbow': self.calculate_angle(
+                    keypoints.get('left_shoulder', [0,0,0]), 
+                    keypoints.get('left_elbow', [0,0,0]), 
+                    keypoints.get('left_wrist', [0,0,0])),
+                'right_elbow': self.calculate_angle(
+                    keypoints.get('right_shoulder', [0,0,0]), 
+                    keypoints.get('right_elbow', [0,0,0]), 
+                    keypoints.get('right_wrist', [0,0,0])),
+                'left_knee': self.calculate_angle(
+                    keypoints.get('left_hip', [0,0,0]), 
+                    keypoints.get('left_knee', [0,0,0]), 
+                    keypoints.get('left_ankle', [0,0,0])),
+                'right_knee': self.calculate_angle(
+                    keypoints.get('right_hip', [0,0,0]), 
+                    keypoints.get('right_knee', [0,0,0]), 
+                    keypoints.get('right_ankle', [0,0,0])),
+                'left_hip': self.calculate_angle(
+                    keypoints.get('left_shoulder', [0,0,0]), 
+                    keypoints.get('left_hip', [0,0,0]), 
+                    keypoints.get('left_knee', [0,0,0])),
+                'right_hip': self.calculate_angle(
+                    keypoints.get('right_shoulder', [0,0,0]), 
+                    keypoints.get('right_hip', [0,0,0]), 
+                    keypoints.get('right_knee', [0,0,0])),
+                'hip_twist': self.calculate_hip_twist(landmarks)
+            }
         
+        # Get base classification from angles
         new_pose_name, new_pose_score = self._classify_current_pose(angles, keypoints)
         
+            # Check for specific poses that require landmark analysis
+        if new_pose_name == "Unknown":
+            if self.touching_toes(landmarks):
+                new_pose_name = "touching toes"
+                new_pose_score = self.evaluate_touching_toes(angles)
+            elif self.hand_on_ground(landmarks) and (
+                (145 < angles['left_hip'] and 145 < angles['left_knee']) or      
+                (145 < angles['right_knee'] and 145 < angles['right_hip'])):
+                new_pose_name = "push ups"   
+                new_pose_score = self.evaluate_push_ups(angles)
+            elif ((55 < angles['left_knee'] < 120 and 55 < angles['left_hip'] < 120 and 
+                140 < angles['right_knee'] and 140 < angles['right_hip']) or
+                (55 < angles['right_knee'] < 120 and 55 < angles['right_hip'] < 120 and 
+                140 < angles['left_knee'] and 140 < angles['left_hip'])):
+                new_pose_name = "Standing knee raise"
+                new_pose_score = self.evaluate_standing_knee_raise(angles)
+            elif ((60 < angles['left_knee'] < 120 and 60 < angles['right_knee'] < 130) and
+                angles['left_elbow'] > 160 and angles['right_elbow'] > 160 and
+                60 < angles['left_hip'] < 120 and 60 < angles['right_hip'] < 120):
+                new_pose_name = "Table Pose"
+                new_pose_score = self.evaluate_table_pose(angles)
+            elif (angles['left_knee'] < 45 and angles['right_knee'] < 45 and
+                angles['left_elbow'] > 160 and angles['right_elbow'] > 160 and
+                angles['left_hip'] < 45 and angles['right_hip'] < 45):
+                new_pose_name = "Child Pose"
+                new_pose_score = self.evaluate_child_pose(angles)
+        
+
         # Pose transition logic
         if new_pose_name != self.current_pose:
             if self.current_pose and self.current_pose != "Unknown":
@@ -212,6 +270,10 @@ class PoseEvaluator:
     def _record_pose_score(self):
         """Record the best score for the completed pose"""
         if self.current_contestant and self.current_pose_best_score > 0:
+        # Add safety check for current_pose_start_time
+            if self.current_pose_start_time is None:
+                self.current_pose_start_time = datetime.now()
+            
             hold_duration = (datetime.now() - self.current_pose_start_time).total_seconds()
             
             self.performed_poses.append({
@@ -242,28 +304,31 @@ class PoseEvaluator:
         pose_name = "Unknown"
         score = 0
         
+
         # downward dog variations
         if ((50 < angles['left_hip'] < 90 or 50 < angles['right_hip'] < 90) and     #hip
             (155 < angles['left_knee']  or 155 < angles['right_knee'] ) and         #knee
             (60 < angles['left_elbow']  or 60 < angles['right_elbow'] ) and         #elbow
             (125 < angles['left_knee']  or 125 < angles['right_shoulder'] )         #shoulder
             ):
-            
             pose_name = "downward dog"
             score = self.evaluate_downward_dog(angles)
 
+        return pose_name, score
+
+        """    
+
         # Touching toes
-        elif (self.touching_toes(self)):
+        elif (self.touching_toes(landmarks)):
             pose_name = "touching toes"
             score = self.evaluate_touching_toes(angles)    
 
         # Push ups
-        elif (self.hand_on_ground(self) and 
+        elif (self.hand_on_ground(landmarks) and 
             (
             (145 < angles['left_hip']   and 145 < angles['left_knee']) or      
             (145 < angles['right_knee'] and 145 < angles['right_hip'])       
             )):
-
             pose_name = "push ups"   
             score = self.evaluate_push_ups(angles)
 
@@ -292,6 +357,7 @@ class PoseEvaluator:
               angles['left_hip'] < 45 and angles['right_hip'] < 45 ):
               pose_name = "Child Pose"
               score = self.evaluate_child_pose(angles)
+              """
 
 
     def evaluate_downward_dog(self, angles):
@@ -419,6 +485,8 @@ class PoseEvaluator:
         self.performed_poses = []
         self.current_pose = None
         self.current_pose_best_score = 0
+        self.current_pose_start_time = datetime.now()   # Ensure this is set
+        self.last_pose_change_time = datetime.now()     # Ensure this is set
         
     def save_contestant_results(self):
         """Save current contestant's results to history"""
@@ -448,6 +516,42 @@ class PoseEvaluator:
                 self.contestants = json.load(f)
 
 class YogaRefereeApp:
+    def detect_cameras(self):
+        """Detect available cameras"""
+        cameras = []
+        # Test up to 5 cameras
+        for i in range(5):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                cameras.append(i)
+                cap.release()
+        return cameras
+
+    def initialize_camera(self, camera_index):
+        """Initialize camera with the given index"""
+        if self.cap is not None:
+            self.cap.release()
+        
+        self.cap = cv2.VideoCapture(camera_index)
+        if not self.cap.isOpened():
+            messagebox.showerror("Error", f"Could not open camera {camera_index}")
+            return False
+        
+        # Set camera properties
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        
+        return True
+
+    def switch_camera(self, camera_index):
+        """Switch to a different camera"""
+        if camera_index in self.available_cameras:
+            if self.initialize_camera(camera_index):
+                self.current_camera_index = camera_index
+                messagebox.showinfo("Camera Changed", f"Switched to camera {camera_index}")
+
+
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Yoga Referee")
@@ -456,13 +560,42 @@ class YogaRefereeApp:
         self.evaluator = PoseEvaluator()
         self.evaluator.load_from_file()
         
+            # Camera management
+        self.available_cameras = self.detect_cameras()
+        self.current_camera_index = 0
+        
+
         self.create_menu()
         self.create_main_layout()
+
+        #""""
+        #This is supposed to support multiple cameras:
+            # Initialize camera
+        self.cap = None
+        self.initialize_camera(self.current_camera_index)
         
-        self.cap = cv2.VideoCapture(0)
         self.paused = False
         self.current_frame = None
         
+
+        """
+        #this support one camera
+        # Initialize camera with error handling
+        self.cap = cv2.VideoCapture(0)          #This should be added to options
+        if not self.cap.isOpened():
+            messagebox.showerror("Error", "Could not open camera")
+            self.root.quit()
+            return
+        
+        # Set camera properties for better performance
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FPS, 30)
+
+        self.paused = False
+        self.current_frame = None
+        """
+
         self.update_video()
         self.root.mainloop()
     
@@ -474,6 +607,18 @@ class YogaRefereeApp:
         file_menu.add_command(label="Save Results", command=self.save_results)
         file_menu.add_command(label="Reset Current", command=self.reset_current)
         file_menu.add_separator()
+
+        #add camera submenu
+        camera_menu = Menu(file_menu, tearoff=0)
+        for cam_index in self.available_cameras:
+            camera_menu.add_command(
+                label=f"Camera {cam_index}", 
+                command=lambda idx=cam_index: self.switch_camera(idx)
+            )
+        file_menu.add_cascade(label="Selsect Camera", menu= camera_menu)
+        file_menu.add_separator()
+
+
         file_menu.add_command(label="Exit", command=self.root.quit)
         menubar.add_cascade(label="File", menu=file_menu)
         
@@ -631,18 +776,26 @@ class YogaRefereeApp:
             self.score_label.config(text="Score: 0")
     
     def update_video(self):
-        if self.cap and not self.paused:
-            ret, frame = self.cap.read()
-            if ret:
+        if self.cap is not None and not self.paused:
+            try:
+                ret, frame = self.cap.read()
+                if not ret:
+                    print("Failed to grab frame")
+                    self.root.after(10, self.update_video)
+                    return
+                    
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = self.evaluator.pose.process(frame_rgb)
                 
-                if results.pose_landmarks:
-                    self.evaluator.draw_skeleton(frame, results.pose_landmarks, frame.shape[1], frame.shape[0])
-                    pose_name, pose_score = self.evaluator.classify_pose(results.pose_landmarks.landmark)
-                    
-                    self.pose_name_label.config(text=pose_name)
-                    self.pose_score_label.config(text=f"Pose Score: {pose_score}")
+                if results and results.pose_landmarks:
+                    try:
+                        self.evaluator.draw_skeleton(frame, results.pose_landmarks, frame.shape[1], frame.shape[0])
+                        pose_name, pose_score = self.evaluator.classify_pose(results.pose_landmarks.landmark)
+                        
+                        self.pose_name_label.config(text=pose_name)
+                        self.pose_score_label.config(text=f"Pose Score: {pose_score}")
+                    except Exception as e:
+                        print(f"Error in pose processing: {e}")
                 
                 img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 imgtk = ImageTk.PhotoImage(image=img)
@@ -651,10 +804,15 @@ class YogaRefereeApp:
                 self.video_label.config(image=self.current_frame)
                 
                 self.update_contestant_display()
-
-
-
-            
+                
+            except Exception as e:
+                print(f"Error in video update: {e}")
+                # Try to reinitialize camera
+                try:
+                    self.cap.release()
+                except:
+                    pass
+                self.initialize_camera(self.current_camera_index)
         
         self.root.after(10, self.update_video)
 
